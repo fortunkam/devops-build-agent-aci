@@ -1,0 +1,125 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "imageName": {
+            "type": "string",
+        },
+        "devOpsUrl": {
+            "type": "securestring",
+        },
+        "devOpsPatToken": {
+            "type": "securestring",
+        },
+        "agentName": {
+            "type" : "string",
+            "defaultValue" : "aciagent"
+        },
+        "acrLoginName": {
+            "type": "string",
+        },
+        "acrLoginUser": {
+            "type": "string",
+        },
+        "acrLoginPassword": {
+            "type": "securestring",
+        },
+        "subnetId": {
+            "type": "securestring",
+        },
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "name": "acibuildagent-networkprofile",
+            "type": "Microsoft.Network/networkProfiles",
+            "apiVersion": "2020-05-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "properties": {
+                "containerNetworkInterfaceConfigurations": [
+                    {
+                        "name": "eth0",
+                        "properties": {
+                            "ipConfigurations": [
+                                {
+                                    "name": "ipconfigprofile",
+                                    "properties": {
+                                        "subnet": {
+                                            "id": "[parameters('subnetId')]"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+     ,{
+         "name": "acibuildagent",
+         "type": "Microsoft.ContainerInstance/containerGroups",
+         "apiVersion": "2018-10-01",
+         "location": "[resourceGroup().location]",
+         "dependsOn" : ["acibuildagent-networkprofile"],
+         "properties": {
+             "containers": [
+                 {
+                     "name": "acibuildagent",
+                     "properties": {
+                         "image": "[parameters('imageName')]",
+                         "resources": {
+                             "requests": {
+                                 "cpu": 1,
+                                 "memoryInGB": 4
+                             }
+                         },
+                         "ports": [
+                            {
+                                "protocol": "TCP",
+                                "port": "80"
+                            }
+                            ],
+                         "environmentVariables": [
+                            {
+                            "name": "AZP_URL",
+                            "secureValue": "[parameters('devOpsUrl')]"
+                            },
+                            {
+                            "name": "AZP_TOKEN",
+                            "secureValue": "[parameters('devOpsPatToken')]"
+                            },
+                            {
+                            "name": "AZP_AGENT_NAME",
+                            "value": "[parameters('agentName')]",
+                            }
+                        ],
+                     }
+                 }
+             ],
+             "imageRegistryCredentials": [
+                {
+                "server": "[parameters('acrLoginName')]",
+                "username": "[parameters('acrLoginUser')]",
+                "password": "[parameters('acrLoginPassword')]"
+                }
+            ],
+             "osType": "Linux",
+             "ipAddress": {
+                 "type": "Private",
+                 "ports": [
+                            {
+                                "protocol": "TCP",
+                                "port": "80"
+                            }
+                            ]
+             },
+             "networkProfile": {
+                "id": "[resourceId('Microsoft.Network/networkProfiles','acibuildagent-networkprofile')]"
+            },
+         }
+     }
+    ],
+    "outputs": {}
+}
